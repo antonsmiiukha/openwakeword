@@ -59,7 +59,7 @@ setuptools.setup(
                     'torchmetrics>=0.11.4,<1',
                     'speechbrain>=0.5.14,<1',
                     'audiomentations>=0.30.0,<1',
-                    'torch-audiomentations>=0.11.0,<1',
+                    'torch-audiomentations==0.11.0',
                     'tqdm>=4.64.0,<5',
                     'pytest>=7.2.0,<8',
                     'pytest-cov>=2.10.1,<3',
