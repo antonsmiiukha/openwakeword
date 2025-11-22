@@ -19,7 +19,7 @@ import openwakeword
 from openwakeword.data import generate_adversarial_texts, augment_clips, mmap_batch_generator
 from openwakeword.utils import compute_features_from_generator
 from openwakeword.utils import AudioFeatures
-from piper import PiperVoice
+from piper import PiperVoice, SynthesisConfig
 
 # Base model class for an openwakeword model
 class Model(nn.Module):
