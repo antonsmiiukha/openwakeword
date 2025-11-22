@@ -19,7 +19,6 @@ import openwakeword
 from openwakeword.data import generate_adversarial_texts, augment_clips, mmap_batch_generator
 from openwakeword.utils import compute_features_from_generator
 from openwakeword.utils import AudioFeatures
-from piper import PiperVoice, SynthesisConfig
 
 # Base model class for an openwakeword model
 class Model(nn.Module):
@@ -647,9 +646,6 @@ if __name__ == '__main__':
     sys.path.insert(0, os.path.abspath(config["piper_sample_generator_path"]))
     from generate_samples import generate_samples
 
-    config_tts = SynthesisConfig()
-    voice = PiperVoice("alloy", config_tts)
-
     # Define output locations
     config["output_dir"] = os.path.abspath(config["output_dir"])
     if not os.path.exists(config["output_dir"]):
@@ -680,7 +676,7 @@ if __name__ == '__main__':
         n_current_samples = len(os.listdir(positive_train_output_dir))
         if n_current_samples <= 0.95 * config["n_samples"]:
             generate_samples(
-                model=voice,
+                model="alloy",
                 text=config["target_phrase"], max_samples=config["n_samples"] - n_current_samples,
                 batch_size=config["tts_batch_size"],
                 noise_scales=[0.98], noise_scale_ws=[0.98], length_scales=[0.75, 1.0, 1.25],
@@ -698,7 +694,7 @@ if __name__ == '__main__':
             os.mkdir(positive_test_output_dir)
         n_current_samples = len(os.listdir(positive_test_output_dir))
         if n_current_samples <= 0.95 * config["n_samples_val"]:
-            generate_samples(model=voice,
+            generate_samples(model="alloy",
                              text=config["target_phrase"], max_samples=config["n_samples_val"] - n_current_samples,
                              batch_size=config["tts_batch_size"],
                              noise_scales=[1.0], noise_scale_ws=[1.0], length_scales=[0.75, 1.0, 1.25],
@@ -721,7 +717,7 @@ if __name__ == '__main__':
                     N=config["n_samples"] // len(config["target_phrase"]),
                     include_partial_phrase=1.0,
                     include_input_words=0.2))
-            generate_samples(model=voice,
+            generate_samples(model="alloy",
                              text=adversarial_texts, max_samples=config["n_samples"] - n_current_samples,
                              batch_size=config["tts_batch_size"] // 7,
                              noise_scales=[0.98], noise_scale_ws=[0.98], length_scales=[0.75, 1.0, 1.25],
@@ -746,7 +742,7 @@ if __name__ == '__main__':
                     N=config["n_samples_val"] // len(config["target_phrase"]),
                     include_partial_phrase=1.0,
                     include_input_words=0.2))
-            generate_samples(model=voice,
+            generate_samples(model="alloy",
                              text=adversarial_texts, max_samples=config["n_samples_val"] - n_current_samples,
                              batch_size=config["tts_batch_size"] // 7,
                              noise_scales=[1.0], noise_scale_ws=[1.0], length_scales=[0.75, 1.0, 1.25],
