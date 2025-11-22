@@ -647,7 +647,7 @@ if __name__ == '__main__':
     sys.path.insert(0, os.path.abspath(config["piper_sample_generator_path"]))
     from generate_samples import generate_samples
 
-    voice = PiperVoice.from_pretrained("alloy")
+    voice = PiperVoice("alloy")
 
     # Define output locations
     config["output_dir"] = os.path.abspath(config["output_dir"])
