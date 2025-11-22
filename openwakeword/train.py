@@ -20,6 +20,7 @@ from openwakeword.data import generate_adversarial_texts, augment_clips, mmap_ba
 from openwakeword.utils import compute_features_from_generator
 from openwakeword.utils import AudioFeatures
 
+
 # Base model class for an openwakeword model
 class Model(nn.Module):
     def __init__(self, n_classes=1, input_shape=(16, 96), model_type="dnn",
@@ -676,7 +677,8 @@ if __name__ == '__main__':
         n_current_samples = len(os.listdir(positive_train_output_dir))
         if n_current_samples <= 0.95 * config["n_samples"]:
             generate_samples(
-                model="alloy",
+                model="/content/amy.onnx",
+                config="/content/amy.onnx.json",
                 text=config["target_phrase"], max_samples=config["n_samples"] - n_current_samples,
                 batch_size=config["tts_batch_size"],
                 noise_scales=[0.98], noise_scale_ws=[0.98], length_scales=[0.75, 1.0, 1.25],
@@ -694,7 +696,8 @@ if __name__ == '__main__':
             os.mkdir(positive_test_output_dir)
         n_current_samples = len(os.listdir(positive_test_output_dir))
         if n_current_samples <= 0.95 * config["n_samples_val"]:
-            generate_samples(model="alloy",
+            generate_samples(model="/content/amy.onnx",
+                             config="/content/amy.onnx.json",
                              text=config["target_phrase"], max_samples=config["n_samples_val"] - n_current_samples,
                              batch_size=config["tts_batch_size"],
                              noise_scales=[1.0], noise_scale_ws=[1.0], length_scales=[0.75, 1.0, 1.25],
@@ -717,7 +720,8 @@ if __name__ == '__main__':
                     N=config["n_samples"] // len(config["target_phrase"]),
                     include_partial_phrase=1.0,
                     include_input_words=0.2))
-            generate_samples(model="alloy",
+            generate_samples(model="/content/amy.onnx",
+                             config="/content/amy.onnx.json",
                              text=adversarial_texts, max_samples=config["n_samples"] - n_current_samples,
                              batch_size=config["tts_batch_size"] // 7,
                              noise_scales=[0.98], noise_scale_ws=[0.98], length_scales=[0.75, 1.0, 1.25],
@@ -742,7 +746,8 @@ if __name__ == '__main__':
                     N=config["n_samples_val"] // len(config["target_phrase"]),
                     include_partial_phrase=1.0,
                     include_input_words=0.2))
-            generate_samples(model="alloy",
+            generate_samples(model="/content/amy.onnx",
+                             config="/content/amy.onnx.json",
                              text=adversarial_texts, max_samples=config["n_samples_val"] - n_current_samples,
                              batch_size=config["tts_batch_size"] // 7,
                              noise_scales=[1.0], noise_scale_ws=[1.0], length_scales=[0.75, 1.0, 1.25],
