@@ -19,7 +19,17 @@ import openwakeword
 from openwakeword.data import generate_adversarial_texts, augment_clips, mmap_batch_generator
 from openwakeword.utils import compute_features_from_generator
 from openwakeword.utils import AudioFeatures
+import torchaudio
 
+def my_fake_audio_info(path):
+    print("⚠️ Custom AudioInfo.load triggered for:", path)
+    return {
+        "sample_rate": 16000,
+        "num_channels": 1,
+        "num_frames": 16000 * 2,  # 2 seconds
+    }
+
+torchaudio.info = my_fake_audio_info
 
 # Base model class for an openwakeword model
 class Model(nn.Module):
