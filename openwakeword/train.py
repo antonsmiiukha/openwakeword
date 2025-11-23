@@ -21,7 +21,6 @@ from openwakeword.utils import compute_features_from_generator
 from openwakeword.utils import AudioFeatures
 
 import onnxruntime
-import numpy as np
 from pathlib import Path
 from scipy.io.wavfile import write
 import uuid
