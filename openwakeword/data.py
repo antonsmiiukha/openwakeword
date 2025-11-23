@@ -939,6 +939,12 @@ def generate_adversarial_texts(input_text: str, N: int, include_partial_phrase: 
 
         # Create phonemizer object
         from dp.phonemizer import Phonemizer
+
+        import torch
+        import dp.preprocessing.text
+
+        torch.serialization.add_safe_globals([dp.preprocessing.text.Preprocessor])
+
         phonemizer = Phonemizer.from_checkpoint(phonemizer_mdl_path)
 
     for phones, word in zip(input_text_phones, input_text.split()):
