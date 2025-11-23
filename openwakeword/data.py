@@ -937,15 +937,22 @@ def generate_adversarial_texts(input_text: str, N: int, include_partial_phrase: 
                     if chunk:
                         f.write(chunk)
 
-        # Create phonemizer object
         from dp.phonemizer import Phonemizer
-
         import torch
         import dp.preprocessing.text
 
-        torch.serialization.add_safe_globals([dp.preprocessing.text.Preprocessor])
+        def load_dp_checkpoint(path):
+            with torch.serialization.safe_globals([dp.preprocessing.text.Preprocessor]):
+                return torch.load(path, map_location="cpu", weights_only=False)
+
+        # Monkeypatch deep phonemizer load
+        old_load = torch.load
+        torch.load = load_dp_checkpoint
 
         phonemizer = Phonemizer.from_checkpoint(phonemizer_mdl_path)
+
+        # Restore torch.load
+        torch.load = old_load
 
     for phones, word in zip(input_text_phones, input_text.split()):
         if phones != []:
