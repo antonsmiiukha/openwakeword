@@ -19,102 +19,62 @@ import openwakeword
 from openwakeword.data import generate_adversarial_texts, augment_clips, mmap_batch_generator
 from openwakeword.utils import compute_features_from_generator
 from openwakeword.utils import AudioFeatures
-
 import os
 import uuid
 import numpy as np
 import onnxruntime as ort
-import soundfile as sf
-from dp.phonemizer import Phonemizer
-import torch
-import dp.preprocessing.text
+from scipy.io.wavfile import write as wav_write
 
-torch.serialization.add_safe_globals([dp.preprocessing.text.Preprocessor])
-
-phonemizer = None
 
 def generate_samples(
-    model,
-    text,
-    max_samples,
-    batch_size,
-    noise_scales,
-    noise_scale_ws,
-    length_scales,
-    output_dir,
-    auto_reduce_batch_size=True,
-    file_names=None,
-    sid=0,
+        model,
+        text,
+        max_samples,
+        batch_size,
+        noise_scales,
+        noise_scale_ws,
+        length_scales,
+        output_dir,
+        auto_reduce_batch_size=True
 ):
-    global phonemizer
-
     os.makedirs(output_dir, exist_ok=True)
-
-    if isinstance(text, str):
-        text_list = [text] * max_samples
-    else:
-        text_list = text[:max_samples]
-
-    if file_names is None:
-        file_names = [uuid.uuid4().hex + ".wav" for _ in range(len(text_list))]
-
-    if phonemizer is None:
-        phonemizer = Phonemizer.from_checkpoint("uk_UA.pt", device="cpu")
 
     sess = ort.InferenceSession(model, providers=["CPUExecutionProvider"])
 
+    if isinstance(text, str):
+        texts = [text]
+    else:
+        texts = text
+
     generated = 0
-    idx_text = 0
+    t_i = 0
 
-    while generated < max_samples and idx_text < len(text_list):
-        bs = batch_size
-        ok = False
+    while generated < max_samples and t_i < len(texts):
+        current_batch = texts[t_i: t_i + batch_size]
+        t_i += batch_size
 
-        while not ok and bs > 0:
-            try:
-                batch_texts = text_list[idx_text: idx_text + bs]
+        for txt in current_batch:
+            for ns in noise_scales:
+                for nsw in noise_scale_ws:
+                    for ls in length_scales:
+                        if generated >= max_samples:
+                            return
 
-                phones = [phonemizer.phonemise(t) for t in batch_texts]
-                tokenized = [[ord(c) for c in p] for p in phones]
+                        inp = {
+                            "text": np.array([txt.encode("utf-8")], dtype=object),
+                            "noise_scale": np.array([ns], dtype=np.float32),
+                            "noise_scale_w": np.array([nsw], dtype=np.float32),
+                            "length_scale": np.array([ls], dtype=np.float32)
+                        }
 
-                max_len = max(len(t) for t in tokenized)
-                input_arr = np.zeros((bs, max_len), dtype=np.int64)
-                lengths = np.zeros((bs,), dtype=np.int64)
+                        try:
+                            audio = sess.run(None, inp)[0][0]
+                        except Exception:
+                            continue
 
-                for i, t in enumerate(tokenized):
-                    input_arr[i, :len(t)] = t
-                    lengths[i] = len(t)
-
-                for ns in noise_scales:
-                    for nsw in noise_scale_ws:
-                        for ls in length_scales:
-                            outputs = sess.run(
-                                None,
-                                {
-                                    "input": input_arr,
-                                    "input_lengths": lengths,
-                                    "scales": np.array([ns, nsw, ls], dtype=np.float32),
-                                    "sid": np.array([sid], dtype=np.int64),
-                                },
-                            )
-
-                            wavs = outputs[0]
-
-                            for i, w in enumerate(wavs):
-                                outpath = os.path.join(output_dir, file_names[generated])
-                                sf.write(outpath, w, 22050)
-                                generated += 1
-                                if generated >= max_samples:
-                                    return
-
-                ok = True
-
-            except Exception:
-                if not auto_reduce_batch_size:
-                    raise
-                bs = bs // 2
-
-        idx_text += bs
+                        fn = os.path.join(output_dir, uuid.uuid4().hex + ".wav")
+                        wav_write(fn, 22050, audio.astype(np.float32))
+                        generated += 1
 
 # Base model class for an openwakeword model
 class Model(nn.Module):
