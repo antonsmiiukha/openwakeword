@@ -20,6 +20,85 @@ from openwakeword.data import generate_adversarial_texts, augment_clips, mmap_ba
 from openwakeword.utils import compute_features_from_generator
 from openwakeword.utils import AudioFeatures
 
+import onnxruntime
+import numpy as np
+from pathlib import Path
+from scipy.io.wavfile import write
+import uuid
+import math
+
+
+def generate_samples(
+        model: str,
+        text,
+        max_samples: int,
+        batch_size: int = 1,
+        noise_scales=[1.0],
+        noise_scale_ws=[1.0],
+        length_scales=[1.0],
+        output_dir: str = "./samples",
+        auto_reduce_batch_size: bool = True,
+        file_names=None
+):
+    """
+    Генерує WAV файли з української Piper ONNX моделі.
+
+    Args:
+        model: шлях до .onnx моделі
+        text: список рядків або один рядок для генерації
+        max_samples: максимальна кількість згенерованих аудіо
+        batch_size: розмір батчу
+        noise_scales: масштаб шуму для варіацій
+        noise_scale_ws: додатковий шум
+        length_scales: множник довжини (швидкість/тривалість)
+        output_dir: директорія для збереження WAV
+        auto_reduce_batch_size: якщо True, зменшує batch, якщо не вистачає пам'яті
+        file_names: список імен для WAV файлів
+    """
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
+
+    if isinstance(text, str):
+        text = [text]
+
+    n_samples_generated = 0
+    total_samples = min(max_samples, len(text))
+
+    if file_names is None:
+        file_names = [f"{uuid.uuid4().hex}.wav" for _ in range(total_samples)]
+
+    # Завантажуємо ONNX модель
+    session = onnxruntime.InferenceSession(model)
+
+    # Простий токенізатор (замість реального Piper tokenizer)
+    def text_to_input(s):
+        # Реальний Piper tokenizer використовує .json конфіг
+        # Тут спрощено для прикладу
+        return np.array([ord(c) for c in s], dtype=np.int64)
+
+    while n_samples_generated < total_samples:
+        current_batch_size = min(batch_size, total_samples - n_samples_generated)
+        batch_texts = text[n_samples_generated:n_samples_generated + current_batch_size]
+
+        for i, t in enumerate(batch_texts):
+            input_ids = text_to_input(t).reshape(1, -1)  # batch_size=1
+            try:
+                outputs = session.run(None, {"input_ids": input_ids})
+            except Exception as e:
+                if auto_reduce_batch_size and current_batch_size > 1:
+                    print(f"Memory error, reducing batch_size from {current_batch_size} to 1")
+                    current_batch_size = 1
+                    continue
+                else:
+                    raise e
+
+            audio = outputs[0].squeeze()
+
+            file_path = Path(output_dir) / file_names[n_samples_generated]
+            write(file_path, 22050, audio.astype(np.float32))
+            print(f"[{n_samples_generated + 1}/{total_samples}] WAV згенеровано: {file_path}")
+
+            n_samples_generated += 1
+
 # Base model class for an openwakeword model
 class Model(nn.Module):
     def __init__(self, n_classes=1, input_shape=(16, 96), model_type="dnn",
@@ -644,7 +723,7 @@ if __name__ == '__main__':
 
     # imports Piper for synthetic sample generation
     sys.path.insert(0, os.path.abspath(config["piper_sample_generator_path"]))
-    from generate_samples import generate_samples
+    # from generate_samples import generate_samples
 
     # Define output locations
     config["output_dir"] = os.path.abspath(config["output_dir"])
