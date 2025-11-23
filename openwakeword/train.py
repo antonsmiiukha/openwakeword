@@ -19,12 +19,12 @@ import openwakeword
 from openwakeword.data import generate_adversarial_texts, augment_clips, mmap_batch_generator
 from openwakeword.utils import compute_features_from_generator
 from openwakeword.utils import AudioFeatures
+
 import os
 import uuid
 import numpy as np
 import onnxruntime as ort
 from scipy.io.wavfile import write as wav_write
-
 
 def generate_samples(
         model,
@@ -35,7 +35,8 @@ def generate_samples(
         noise_scale_ws,
         length_scales,
         output_dir,
-        auto_reduce_batch_size=True
+        auto_reduce_batch_size=True,
+        file_names=None
 ):
     os.makedirs(output_dir, exist_ok=True)
 
@@ -48,6 +49,10 @@ def generate_samples(
 
     generated = 0
     t_i = 0
+
+    if file_names is None:
+        file_names = [uuid.uuid4().hex + ".wav" for _ in range(max_samples)]
+    fn_index = 0
 
     while generated < max_samples and t_i < len(texts):
         current_batch = texts[t_i: t_i + batch_size]
@@ -72,8 +77,12 @@ def generate_samples(
                         except Exception:
                             continue
 
-                        fn = os.path.join(output_dir, uuid.uuid4().hex + ".wav")
-                        wav_write(fn, 22050, audio.astype(np.float32))
+                        fn = file_names[fn_index] if fn_index < len(file_names) else uuid.uuid4().hex + ".wav"
+                        fn_index += 1
+
+                        out = os.path.join(output_dir, fn)
+                        wav_write(out, 22050, audio.astype(np.float32))
+
                         generated += 1
 
 # Base model class for an openwakeword model
