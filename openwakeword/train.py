@@ -19,7 +19,6 @@ import openwakeword
 from openwakeword.data import generate_adversarial_texts, augment_clips, mmap_batch_generator
 from openwakeword.utils import compute_features_from_generator
 from openwakeword.utils import AudioFeatures
-from generate_samples import generate_samples
 
 # Base model class for an openwakeword model
 class Model(nn.Module):
@@ -645,7 +644,7 @@ if __name__ == '__main__':
 
     # imports Piper for synthetic sample generation
     sys.path.insert(0, os.path.abspath(config["piper_sample_generator_path"]))
-    # from generate_samples import generate_samples
+    from generate_samples import generate_samples
 
     # Define output locations
     config["output_dir"] = os.path.abspath(config["output_dir"])
