@@ -47,11 +47,11 @@ def generate_samples(
         text: список рядків або один рядок для генерації
         max_samples: максимальна кількість згенерованих аудіо
         batch_size: розмір батчу
-        noise_scales: масштаб шуму для варіацій
-        noise_scale_ws: додатковий шум
-        length_scales: множник довжини (швидкість/тривалість)
+        noise_scales: список шумів для варіацій
+        noise_scale_ws: список ws шумів (Piper)
+        length_scales: список множників довжини (швидкість/тривалість)
         output_dir: директорія для збереження WAV
-        auto_reduce_batch_size: якщо True, зменшує batch, якщо не вистачає пам'яті
+        auto_reduce_batch_size: якщо True, зменшує batch при помилках пам’яті
         file_names: список імен для WAV файлів
     """
     Path(output_dir).mkdir(parents=True, exist_ok=True)
@@ -59,45 +59,71 @@ def generate_samples(
     if isinstance(text, str):
         text = [text]
 
-    n_samples_generated = 0
     total_samples = min(max_samples, len(text))
 
     if file_names is None:
         file_names = [f"{uuid.uuid4().hex}.wav" for _ in range(total_samples)]
 
-    # Завантажуємо ONNX модель
+    # ONNX Runtime сесія
     session = onnxruntime.InferenceSession(model)
 
-    # Простий токенізатор (замість реального Piper tokenizer)
-    def text_to_input(s):
-        # Реальний Piper tokenizer використовує .json конфіг
-        # Тут спрощено для прикладу
-        return np.array([ord(c) for c in s], dtype=np.int64)
+    def prepare_inputs(texts):
+        """Простий токенізатор для прикладу"""
+        batch_input = []
+        batch_lengths = []
+        for t in texts:
+            tokens = [ord(c) for c in t]  # замінити на реальний Piper tokenizer
+            batch_input.append(tokens)
+            batch_lengths.append(len(tokens))
+        max_len = max(batch_lengths)
+        batch_input_padded = [tokens + [0] * (max_len - len(tokens)) for tokens in batch_input]
+        return np.array(batch_input_padded, dtype=np.int64), np.array(batch_lengths, dtype=np.int64)
 
-    while n_samples_generated < total_samples:
-        current_batch_size = min(batch_size, total_samples - n_samples_generated)
-        batch_texts = text[n_samples_generated:n_samples_generated + current_batch_size]
+    n_generated = 0
 
-        for i, t in enumerate(batch_texts):
-            input_ids = text_to_input(t).reshape(1, -1)  # batch_size=1
-            try:
-                outputs = session.run(None, {"input_ids": input_ids})
-            except Exception as e:
-                if auto_reduce_batch_size and current_batch_size > 1:
-                    print(f"Memory error, reducing batch_size from {current_batch_size} to 1")
-                    current_batch_size = 1
-                    continue
-                else:
-                    raise e
+    while n_generated < total_samples:
+        current_batch_size = min(batch_size, total_samples - n_generated)
+        batch_texts = text[n_generated:n_generated + current_batch_size]
 
-            audio = outputs[0].squeeze()
+        # Підготовка input та довжини
+        input_batch, input_lengths = prepare_inputs(batch_texts)
 
-            file_path = Path(output_dir) / file_names[n_samples_generated]
+        # scales: shape = (batch_size, 3) -> [noise_scale, noise_scale_w, length_scale]
+        scales_list = []
+        for ns in noise_scales:
+            for nws in noise_scale_ws:
+                for ls in length_scales:
+                    scales_list.append([ns, nws, ls])
+        scales = np.array(scales_list[:current_batch_size], dtype=np.float32)
+
+        # sid: speaker ID, 0 для українського голосу
+        sids = np.zeros((current_batch_size,), dtype=np.int64)
+
+        try:
+            outputs = session.run(
+                None,
+                {
+                    "input": input_batch,
+                    "input_lengths": input_lengths,
+                    "scales": scales,
+                    "sid": sids
+                }
+            )
+        except Exception as e:
+            if auto_reduce_batch_size and current_batch_size > 1:
+                print(f"Помилка пам’яті, зменшуємо batch_size з {current_batch_size} до 1")
+                batch_size = 1
+                continue
+            else:
+                raise e
+
+        # outputs[0] -> аудіо
+        for i in range(current_batch_size):
+            audio = outputs[0][i].squeeze()
+            file_path = Path(output_dir) / file_names[n_generated]
             write(file_path, 22050, audio.astype(np.float32))
-            print(f"[{n_samples_generated + 1}/{total_samples}] WAV згенеровано: {file_path}")
-
-            n_samples_generated += 1
-
+            print(f"[{n_generated + 1}/{total_samples}] WAV згенеровано: {file_path}")
+            n_generated += 1
 # Base model class for an openwakeword model
 class Model(nn.Module):
     def __init__(self, n_classes=1, input_shape=(16, 96), model_type="dnn",
