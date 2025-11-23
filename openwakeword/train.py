@@ -19,71 +19,7 @@ import openwakeword
 from openwakeword.data import generate_adversarial_texts, augment_clips, mmap_batch_generator
 from openwakeword.utils import compute_features_from_generator
 from openwakeword.utils import AudioFeatures
-
-import os
-import uuid
-import numpy as np
-import onnxruntime as ort
-from scipy.io.wavfile import write as wav_write
-
-def generate_samples(
-        model,
-        text,
-        max_samples,
-        batch_size,
-        noise_scales,
-        noise_scale_ws,
-        length_scales,
-        output_dir,
-        auto_reduce_batch_size=True,
-        file_names=None
-):
-    os.makedirs(output_dir, exist_ok=True)
-
-    sess = ort.InferenceSession(model, providers=["CPUExecutionProvider"])
-
-    if isinstance(text, str):
-        texts = [text]
-    else:
-        texts = text
-
-    generated = 0
-    t_i = 0
-
-    if file_names is None:
-        file_names = [uuid.uuid4().hex + ".wav" for _ in range(max_samples)]
-    fn_index = 0
-
-    while generated < max_samples and t_i < len(texts):
-        current_batch = texts[t_i: t_i + batch_size]
-        t_i += batch_size
-
-        for txt in current_batch:
-            for ns in noise_scales:
-                for nsw in noise_scale_ws:
-                    for ls in length_scales:
-                        if generated >= max_samples:
-                            return
-
-                        inp = {
-                            "text": np.array([txt.encode("utf-8")], dtype=object),
-                            "noise_scale": np.array([ns], dtype=np.float32),
-                            "noise_scale_w": np.array([nsw], dtype=np.float32),
-                            "length_scale": np.array([ls], dtype=np.float32)
-                        }
-
-                        try:
-                            audio = sess.run(None, inp)[0][0]
-                        except Exception:
-                            continue
-
-                        fn = file_names[fn_index] if fn_index < len(file_names) else uuid.uuid4().hex + ".wav"
-                        fn_index += 1
-
-                        out = os.path.join(output_dir, fn)
-                        wav_write(out, 22050, audio.astype(np.float32))
-
-                        generated += 1
+from generate_samples import generate_samples
 
 # Base model class for an openwakeword model
 class Model(nn.Module):
