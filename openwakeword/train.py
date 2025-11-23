@@ -20,6 +20,13 @@ from openwakeword.data import generate_adversarial_texts, augment_clips, mmap_ba
 from openwakeword.utils import compute_features_from_generator
 from openwakeword.utils import AudioFeatures
 
+import torch
+import dp.preprocessing.text
+
+torch.serialization.add_safe_globals([
+    dp.preprocessing.text.Preprocessor,
+])
+
 # Base model class for an openwakeword model
 class Model(nn.Module):
     def __init__(self, n_classes=1, input_shape=(16, 96), model_type="dnn",
