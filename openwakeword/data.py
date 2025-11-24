@@ -942,8 +942,6 @@ def generate_adversarial_texts(input_text: str, N: int, include_partial_phrase: 
         import torch
         import dp.preprocessing.text
 
-        import torch
-
         # --- Monkey patch torch.load to always include weights_only=False ---
         _original_torch_load = torch.load
 
