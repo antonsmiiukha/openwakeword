@@ -944,6 +944,7 @@ def generate_adversarial_texts(input_text: str, N: int, include_partial_phrase: 
 
         # allow DeepPhonemizer Preprocessor class
         torch.serialization.add_safe_globals([dp.preprocessing.text.Preprocessor])
+        phonemizer = Phonemizer.from_checkpoint(phonemizer_mdl_path)
 
     for phones, word in zip(input_text_phones, input_text.split()):
         if phones != []:
@@ -951,7 +952,7 @@ def generate_adversarial_texts(input_text: str, N: int, include_partial_phrase: 
         elif phones == []:
             logging.warning(f"The word '{word}' was not found in the pronunciation dictionary! "
                             "Using the DeepPhonemizer library to predict the phonemes.")
-            phones = Phonemizer(word, lang='en_us')
+            phones = phonemizer(word, lang='en_us')
             logging.warning(f"Phones for '{word}': {phones}")
             word_phones.append(re.sub(r"[\]|\[]", "", re.sub(r"\]\[", " ", phones)))
         elif isinstance(phones[0], list):
