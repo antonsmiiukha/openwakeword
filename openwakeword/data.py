@@ -942,6 +942,17 @@ def generate_adversarial_texts(input_text: str, N: int, include_partial_phrase: 
         import torch
         import dp.preprocessing.text
 
+        import torch
+
+        # --- Monkey patch torch.load to always include weights_only=False ---
+        _original_torch_load = torch.load
+
+        def patched_torch_load(*args, **kwargs):
+            kwargs.setdefault("weights_only", False)
+            return _original_torch_load(*args, **kwargs)
+
+        torch.load = patched_torch_load
+
         # allow DeepPhonemizer Preprocessor class
         torch.serialization.add_safe_globals([dp.preprocessing.text.Preprocessor])
         phonemizer = Phonemizer.from_checkpoint(phonemizer_mdl_path)
